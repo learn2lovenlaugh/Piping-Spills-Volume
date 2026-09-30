@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pinhole Leak Spill Volume</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mut:#5b6575;--line:#d9dee6;--acc:#1f5fbf;--accl:#e8f0fc;--warn:#9a5200;--bad:#b3261e;--head:#eef1f5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+header{padding:10px 20px;border-bottom:1px solid var(--line);background:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:17px;margin:0}
+header p{margin:1px 0 0;color:var(--mut);font-size:12px}
+main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:14px 20px;max-width:1500px;margin:0 auto}
+main.noaside{grid-template-columns:1fr}
+main.noaside aside{display:none}
+@media(max-width:900px){main{grid-template-columns:1fr;padding:10px}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:14px;min-width:0}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:0 0 8px}
+details{background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:10px}
+summary{cursor:pointer;padding:9px 12px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--mut);font-weight:400}
+details[open] summary::after{content:"-"}
+details .in{padding:0 12px 10px}
+label.f{display:grid;grid-template-columns:1fr 104px;align-items:center;gap:8px;margin:5px 0;font-size:13px}
+label.f small{display:block;color:var(--mut);font-size:11px;line-height:1.2}
+label.c{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:13px}
+input[type=number],input[type=text],select{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:4px;font:inherit;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:2px solid #bcd0f0;border-color:var(--acc)}
+button{font:inherit;padding:4px 11px;border:1px solid var(--acc);background:#fff;color:var(--acc);border-radius:4px;cursor:pointer}
+button:hover{background:var(--accl)}
+.sub{font-size:12px;color:var(--mut);margin:8px 0 4px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:inline-flex;align-items:center;padding:2px 9px;border:1px solid var(--line);border-radius:12px;font-size:12px;cursor:pointer;user-select:none;background:#fff}
+.chip input{display:none}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.add{display:flex;gap:5px;margin-top:6px}
+.add input{flex:1}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.tabs button{border:1px solid transparent;border-bottom:none;border-radius:5px 5px 0 0;color:var(--mut);background:transparent;padding:6px 14px;margin-bottom:-1px}
+.tabs button.act{background:#fff;border-color:var(--line);color:var(--ink);font-weight:600}
+.tab{display:none}.tab.act{display:block}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{border:1px solid var(--line);padding:4px 8px;text-align:right;white-space:nowrap}
+th{background:var(--head);font-weight:600}
+td.l,th.l{text-align:left}
+td.hi{font-weight:700;color:var(--bad)}
+#err{color:var(--bad);font-weight:600;margin-bottom:8px}
+.note{color:var(--mut);font-size:12px;margin:6px 0 0}
+.warn{color:var(--warn);font-size:12px}
+canvas{width:100%;height:320px;display:block}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+ol.n{padding-left:18px;margin:4px 0;font-size:12.5px}
+ol.n li{margin:4px 0}
+code{background:var(--head);padding:0 3px;border-radius:3px;font-size:12px}
+.tip{display:inline-block;width:14px;height:14px;border-radius:50%;background:#e1e6ee;color:#5b6575;font-size:10px;line-height:14px;text-align:center;margin-left:4px;cursor:help;font-weight:700;font-style:normal;vertical-align:1px}
+.tip:hover,.tip:focus{background:var(--acc);color:#fff;outline:none}
+#tipbox{position:fixed;display:none;max-width:280px;background:#1d2330;color:#fff;padding:7px 9px;border-radius:5px;font-size:12px;line-height:1.4;z-index:50;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+td.off{color:var(--bad)}
+ol.refs li{margin:4px 0}
+@media print{header .row,aside,.tabs{display:none}main{display:block}.tab{display:block}}
+</style>
+</head>
+<body>
+<header>
+ <div>
+  <h1>Pinhole Leak Spill Model</h1>
+  <p>Above-ground piping, actively flowing line &middot; spill volume + sloped-pad travel time + cost &middot; rev 6</p>
+ </div>
+ <div class="row"><button id="tog">Hide inputs</button><button id="csv">CSV</button><button onclick="window.print()">Print</button></div>
+</header>
+<main id="main">
+<aside>
+ <details open>
+  <summary>Compare: holes &amp; detection times</summary>
+  <div class="in">
+   <div class="sub">Hole diameter (in) - tap to select<span class="tip" tabindex="0" data-k="holes">?</span></div>
+   <div class="chips" id="ch_holes"></div>
+   <div class="add"><input type="text" id="ad_holes" placeholder='add e.g. 5/32 or 0.2'><button data-add="holes">Add</button></div>
+   <div class="sub">Detection time (from leak onset)<span class="tip" tabindex="0" data-k="times">?</span></div>
+   <div class="chips" id="ch_times"></div>
+   <div class="add"><input type="text" id="ad_times" placeholder="add e.g. 45m, 6h, 10d"><button data-add="times">Add</button></div>
+   <label class="f">Detection-to-stop <small>h, response until leak stopped</small><input type="number" id="tstop" value="0.5" step="any"></label>
+  </div>
+ </details>
+ <details open>
+  <summary>Pipe &amp; fluid</summary>
+  <div class="in">
+   <label class="f">Outside diameter <small>in</small><input type="number" id="od" value="12.75" step="any"></label>
+   <label class="f">Wall thickness <small>in</small><input type="number" id="wt" value="0.375" step="any"></label>
+   <label class="f">Pressure at leak <small>psig</small><input type="number" id="p" value="600" step="any"></label>
+   <label class="f">Specific gravity <small>water = 1</small><input type="number" id="sg" value="0.85" step="any"></label>
+   <label class="f">Viscosity in pipe <small>cP, flowing temp</small><input type="number" id="mu" value="10" step="any"></label>
+   <label class="f">Discharge coeff. Cd <small>0.61 sharp; ~0.8 short tube</small><input type="number" id="cd" value="0.61" step="any"></label>
+  </div>
+ </details>
+ <details open>
+  <summary>Pad &amp; travel distance</summary>
+  <div class="in">
+   <label class="f">Pad slope <small>% (rise/run x 100)</small><input type="number" id="slope" value="2" step="any"></label>
+   <label class="f">Flow path width <small>ft, width of oil stream</small><input type="number" id="wid" value="1" step="any"></label>
+   <label class="f">Viscosity on pad <small>cP, at ground temp</small><input type="number" id="mup" value="20" step="any"></label>
+   <label class="f">Surface<select id="surf">
+    <option value="0.04,0">Concrete / liner</option>
+    <option value="0.25,0.3" selected>Compacted gravel pad</option>
+    <option value="0.5,2">Loose gravel</option>
+    <option value="0.2,0.2">Native soil / caliche</option>
+    <option value="custom">Custom</option>
+   </select></label>
+   <label class="f">Surface retention <small>in, oil held in voids/depressions</small><input type="number" id="ret" value="0.25" step="any"></label>
+   <label class="f">Infiltration rate <small>in/h into surface</small><input type="number" id="inf" value="0.3" step="any"></label>
+   <label class="f">Distance to pad edge <small>ft downslope from landing point</small><input type="number" id="edge" value="100" step="any"></label>
+   <div class="sub">Target distance (ft, downslope from where oil lands)<span class="tip" tabindex="0" data-k="dists">?</span></div>
+   <div class="chips" id="ch_dists"></div>
+   <div class="add"><input type="text" id="ad_dists" placeholder="add e.g. 75"><button data-add="dists">Add</button></div>
+  </div>
+ </details>
+ <details open>
+  <summary>Cost</summary>
+  <div class="in">
+   <div class="sub">Response &amp; oil</div>
+   <label class="f">Response / free-product cleanup <small>$/bbl spilled</small><input type="number" id="c_cl" value="1500" step="any"></label>
+   <label class="f">Mobilization <small>$ fixed per event</small><input type="number" id="c_mob" value="10000" step="any"></label>
+   <label class="f">Oil price <small>$/bbl</small><input type="number" id="c_oil" value="70" step="any"></label>
+   <label class="f">Oil recovered <small>% of spilled volume</small><input type="number" id="c_rec" value="50" step="any"></label>
+   <div class="sub">Soil &amp; waste</div>
+   <label class="f">Soil oil retention <small>% of soil volume held as oil</small><input type="number" id="c_cap" value="6" step="any"></label>
+   <label class="f">Soil bulk density <small>ton/yd3</small><input type="number" id="c_rho" value="1.5" step="any"></label>
+   <label class="f">Soil remediation on pad <small>$/yd3</small><input type="number" id="c_on" value="60" step="any"></label>
+   <label class="f">Soil remediation off pad <small>$/yd3</small><input type="number" id="c_off" value="150" step="any"></label>
+   <label class="f">Waste disposal <small>$/ton, transport + disposal</small><input type="number" id="c_disp" value="75" step="any"></label>
+   <div class="sub">Outage &amp; repair</div>
+   <label class="f">Lost production rate <small>bbl/d (0 = line throughput)</small><input type="number" id="c_bi" value="0" step="any"></label>
+   <label class="f">Outage duration <small>h, line down for repair</small><input type="number" id="c_out" value="24" step="any"></label>
+   <label class="f">Piping repair <small>$ per event</small><input type="number" id="c_rep" value="25000" step="any"></label>
+  </div>
+ </details>
+ <details>
+  <summary>Line flow / CPM / display</summary>
+  <div class="in">
+   <label class="f">Line throughput <small>bbl/d (0 = ignore)</small><input type="number" id="thr" value="20000" step="any"></label>
+   <label class="f">CPM threshold <small>% of throughput</small><input type="number" id="cpm" value="1" step="any"></label>
+   <label class="c"><input type="checkbox" id="cap" checked>Cap leak rate at line throughput</label>
+   <label class="f">Volume unit<select id="vu"><option value="bbl">bbl</option><option value="gal">gal</option><option value="m3">m3</option></select></label>
+   <label class="f">Flag volumes &gt;= <small>bbl</small><input type="number" id="hl" value="5" step="any"></label>
+  </div>
+ </details>
+</aside>
+
+<section style="min-width:0">
+ <div id="err"></div>
+ <div class="tabs" id="tabs">
+  <button data-t="t_spill" class="act">Spill volume</button>
+  <button data-t="t_spread">Pad travel</button>
+  <button data-t="t_cost">Cost</button>
+  <button data-t="t_method">Method</button>
+ </div>
+
+ <div class="tab act" id="t_spill">
+  <div class="card"><h2>Leak rate (at operating pressure)</h2><div class="tw"><table id="rate"></table></div><div id="rwarn"></div></div>
+  <div class="card"><h2>Spilled volume - hole vs detection time</h2><div class="tw"><table id="mat"></table></div>
+   <p class="note">V = Q x (detection time + detection-to-stop). Bold red = at or above the "Flag volumes" value (e.g. a reporting threshold).</p></div>
+  <div class="card"><h2>Spilled volume vs detection time</h2><canvas id="chart"></canvas></div>
+ </div>
+
+ <div class="tab" id="t_spread">
+  <div class="card"><h2>Flow on pad</h2><div class="tw"><table id="pad"></table></div><div id="pwarn"></div></div>
+  <div class="card"><h2>Time for oil front to reach distance</h2><div class="tw"><table id="reach"></table></div>
+   <p class="note">"Never" = infiltration absorbs the stream before it gets there (see max run-out).</p></div>
+  <div class="card"><h2>Oil front distance at detection</h2><div class="tw"><table id="front"></table></div>
+   <p class="note">Distance travelled downslope by the time the leak is detected (ft). Red = beyond pad edge.</p></div>
+ </div>
+
+ <div class="tab" id="t_cost">
+  <div class="card"><h2>Total event cost - hole vs detection time</h2><div class="tw"><table id="cmat"></table></div>
+   <p class="note">Total = response + unrecovered oil + soil remediation (on/off pad) + waste disposal + lost revenue + piping repair.</p></div>
+  <div class="card"><h2>Cost breakdown</h2>
+   <label class="f" style="max-width:300px">Hole diameter<select id="csel"></select></label>
+   <div class="tw"><table id="cbrk"></table></div>
+   <p class="note" id="cfix"></p></div>
+ </div>
+
+ <div class="tab" id="t_method">
+  <div class="card"><h2>Leak rate</h2><ol class="n">
+   <li>Orifice discharge: <code>Q = Cd A sqrt(2 P / rho)</code>, A = pi d^2/4, P = gauge pressure at the hole.</li>
+   <li>Line actively flowing, no isolation: pressure held for the whole leak. <code>V = Q (t_detect + t_stop)</code>. Q optionally capped at line throughput.</li>
+   <li>CPM flag: Q vs the stated % of throughput. Below threshold, detection relies on rounds / patrol.</li>
+   <li>Cd for corrosion pinholes is uncertain; L/d = wall/hole &gt; 1 behaves more like a short tube (Cd ~0.8). Re &lt; ~4000 lowers Cd.</li>
+  </ol></div>
+  <div class="card"><h2>Pad travel</h2><ol class="n">
+   <li>Oil runs downslope as a laminar gravity film of width W. Unit flow q = Q/W. Film depth <code>h = (3 mu q / (rho g S))^(1/3)</code>, film velocity <code>v = q/h</code>, S = sin(atan(slope)).</li>
+   <li>The front advances only as fast as it fills the film plus surface retention d_r, while infiltration f removes oil over the wetted area: <code>W (h + d_r) dx/dt = Q - f W x</code>.</li>
+   <li>Solution: max run-out <code>x_max = Q / (f W)</code>; time to reach x: <code>t = -(h + d_r)/f ln(1 - x/x_max)</code>; with f = 0, <code>t = x W (h + d_r) / Q</code>.</li>
+   <li>Distance is measured from where the jet lands. Jet throw, spray/mist and evaporation are not modelled. W is user-set; on a planar pad the stream may widen, which slows the front.</li>
+   <li>Surface presets are screening values only; replace them with site data if available.</li>
+  </ol></div>
+  <div class="card"><h2>Cost</h2><ol class="n">
+   <li>Response = mobilization + unit cost x spilled bbl (free-product recovery, vac trucks, absorbents, crews).</li>
+   <li>Unrecovered oil = spilled bbl x (1 - recovery %) x oil price.</li>
+   <li>Impacted soil (yd3) = unrecovered oil volume / soil oil retention (porosity x residual oil saturation). Split on/off pad by wetted length at the time the leak is stopped: off-pad share = (x - pad edge) / x.</li>
+   <li>Soil remediation = on-pad yd3 x on-pad $/yd3 + off-pad yd3 x off-pad $/yd3. Waste disposal = total yd3 x bulk density x $/ton.</li>
+   <li>Lost revenue = lost production (bbl/d) x outage (h) / 24 x oil price. Repair is fixed per event. Both are independent of spill volume.</li>
+   <li>Excludes regulatory penalties, third-party claims, groundwater remediation and long-term monitoring.</li>
+  </ol></div>
+  <div class="card"><h2>References</h2><ol class="n refs">
+   <li>API RP 581, <i>Risk-Based Inspection Methodology</i>, 3rd ed., 2016 - liquid release rate through a hole (Cd = 0.61), release hole sizes.</li>
+   <li>Crane Co., <i>Technical Paper No. 410: Flow of Fluids Through Valves, Fittings, and Pipe</i> - orifice and short-tube discharge coefficients.</li>
+   <li>CCPS / AIChE, <i>Guidelines for Consequence Analysis of Chemical Releases</i>, 1999 - liquid discharge and pool spreading.</li>
+   <li>API RP 1130, <i>Computational Pipeline Monitoring for Liquids</i>, 2007 - CPM methods and detection thresholds.</li>
+   <li>API RP 1175, <i>Pipeline Leak Detection - Program Management</i>, 2015 - leak detection strategy, performance targets.</li>
+   <li>49 CFR 195.50 / 195.52 - accident reporting criteria and immediate notice; 49 CFR 195.444 - CPM.</li>
+   <li>40 CFR Part 112 - Spill Prevention, Control, and Countermeasure (SPCC).</li>
+   <li>Bird, Stewart, Lightfoot, <i>Transport Phenomena</i>, 2nd ed., 2002 - laminar falling film on an inclined plane (film depth equation).</li>
+   <li>Bear, J., <i>Dynamics of Fluids in Porous Media</i>, 1972 - residual saturation; permeability-based scaling of infiltration with fluid density and viscosity.</li>
+   <li>Etkin, D.S., "Estimating Cleanup Costs for Oil Spills", Proc. International Oil Spill Conference, 1999.</li>
+   <li>Etkin, D.S., "Modeling Oil Spill Response and Damage Costs", Proc. 5th Biennial Freshwater Spills Symposium, 2004 (basis of EPA BOSCEM).</li>
+   <li>PHMSA hazardous liquid incident data (Form 7000-1) - reported response, remediation and commodity-loss costs; useful for calibrating unit costs.</li>
+  </ol><p class="note">Verify current editions before citing.</p></div>
+ </div>
+</section>
+</main>
+
+<div id="tipbox"></div>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id);};
+var PSI=6894.757, IN=0.0254, FT=0.3048, M3BBL=6.289811, G=9.80665;
+var COLORS=["#1f5fbf","#c0392b","#1e7a3c","#9a5200","#7b3fa0","#0f7c8c","#5b6575","#b8307a","#6a7d12","#3b3b98"];
+var last=null;
+
+function mk(p,on){return p.map(function(v){return {v:v,on:on.some(function(o){return Math.abs(o-v)<1e-9;})};});}
+var S={
+ holes:mk([1/32,1/16,3/32,1/8,3/16,1/4,3/8,1/2,3/4,1],[1/32,1/16,1/8,1/4]),
+ times:mk([5/60,0.25,0.5,1,2,4,8,12,24,48,72,168,336,720],[0.25,1,4,24,168]),
+ dists:mk([5,10,25,50,100,200,500],[10,25,50,100])
+};
+
+function num(id){var v=parseFloat($(id).value);return isFinite(v)?v:NaN;}
+function fmt(x){
+ if(!isFinite(x))return "-";
+ var a=Math.abs(x); if(a===0)return "0";
+ if(a>=1000)return Math.round(x).toLocaleString("en-US");
+ if(a>=100)return x.toFixed(0);
+ if(a>=10)return x.toFixed(1);
+ if(a>=1)return x.toFixed(2);
+ if(a>=0.01)return x.toFixed(3);
+ return x.toExponential(2);
+}
+function fmtT(h){
+ if(!isFinite(h))return "-";
+ if(h<1/60)return String(Math.max(1,Math.round(h*3600)))+" s";
+ if(h<1){var m=h*60;return (m<10?String(+m.toFixed(1)):String(Math.round(m)))+" min";}
+ if(h<48)return String(+h.toFixed(h<10?2:1))+" h";
+ return String(+(h/24).toFixed(1))+" d";
+}
+function fmtIn(d){
+ var f=[[1/32,"1/32"],[1/16,"1/16"],[3/32,"3/32"],[1/8,"1/8"],[5/32,"5/32"],[3/16,"3/16"],[1/4,"1/4"],[5/16,"5/16"],[3/8,"3/8"],[1/2,"1/2"],[5/8,"5/8"],[3/4,"3/4"]];
+ for(var i=0;i<f.length;i++)if(Math.abs(d-f[i][0])<1e-4)return f[i][1]+'"';
+ return String(+d.toFixed(4))+'"';
+}
+function fmtFt(x){return String(+x.toFixed(x<10?1:0))+" ft";}
+var LBL={holes:fmtIn,times:fmtT,dists:fmtFt};
+var PARSE={
+ holes:function(s){s=s.replace(/["in ]/g,"");if(s.indexOf("/")>0){var p=s.split("/");return parseFloat(p[0])/parseFloat(p[1]);}return parseFloat(s);},
+ times:function(s){var m=/^\s*([\d.]+)\s*(s|sec|m|min|h|hr|hrs|d|day|days)?\s*$/i.exec(s);if(!m)return NaN;var v=parseFloat(m[1]),u=(m[2]||"h").toLowerCase();
+  if(u[0]==="s")return v/3600;if(u[0]==="m")return v/60;if(u[0]==="d")return v*24;return v;},
+ dists:function(s){return parseFloat(s);}
+};
+function sel(k){return S[k].filter(function(x){return x.on;}).map(function(x){return x.v;}).sort(function(a,b){return a-b;});}
+function drawChips(k){
+ S[k].sort(function(a,b){return a.v-b.v;});
+ $("ch_"+k).innerHTML=S[k].map(function(it,i){
+  return "<label class='chip"+(it.on?" on":"")+"'><input type='checkbox' data-k='"+k+"' data-i='"+i+"'"+(it.on?" checked":"")+">"+LBL[k](it.v)+"</label>";
+ }).join("");
+}
+function addChip(k){
+ var inp=$("ad_"+k),v=PARSE[k](inp.value);
+ if(!(isFinite(v)&&v>0)){inp.style.borderColor="#b3261e";return;}
+ inp.style.borderColor="";
+ var ex=S[k].filter(function(x){return Math.abs(x.v-v)<1e-9;})[0];
+ if(ex)ex.on=true;else S[k].push({v:v,on:true});
+ inp.value="";drawChips(k);render();
+}
+
+var TIPS={
+ od:"Pipe outside diameter. Used for ID (OD - 2t) and the hole-size check.",
+ wt:"Wall thickness at the leak (nominal or remaining). The hole path length L = t; used for the L/d check on Cd.",
+ p:"Gauge pressure inside the pipe at the leak while the line is flowing. Leak rate scales with sqrt(P).",
+ sg:"Oil specific gravity vs water. Crude typically 0.80-0.93. API gravity = 141.5/SG - 131.5.",
+ mu:"Viscosity at flowing temperature. Used only for the hole Reynolds number (Cd validity check).",
+ cd:"Orifice discharge coefficient. 0.61 = sharp-edged hole (API 581 default). About 0.8 for a short tube (wall thicker than hole). Irregular corrosion holes are uncertain.",
+ tstop:"Time from detection until the leak is stopped (clamp, plug, shutdown). Oil leaks at full rate during this time.",
+ holes:"Equivalent circular hole diameter. Pinholes are typically 1/32 to 1/8 in; API 581 smallest release size is 1/4 in.",
+ times:"Time from leak onset to detection. Match to the method: CPM alarm (minutes), operator rounds (hours), patrol or aerial (days).",
+ dists:"Downslope distances to check travel time, e.g. pad edge, ditch, drain, fence line or a receptor.",
+ slope:"Pad grade along the flow path in percent (1 ft drop per 100 ft = 1%). Steeper = faster, thinner stream.",
+ wid:"Width of the oil stream running downslope. Rivulet 0.5-1 ft; sheet flow on a smooth planar pad several ft. Wider = slower front, larger impacted area.",
+ mup:"Oil viscosity at ground temperature. Cooler oil runs slower. Governs film depth and speed.",
+ surf:"Preset retention and infiltration values (screening only). Pick Custom or edit the fields for site data.",
+ ret:"Oil held in surface voids and depressions per unit area before the front advances. Smooth concrete about 0.04 in; gravel 0.2-0.5 in.",
+ inf:"Rate oil soaks into the surface. From water data, scale by SG x (mu_water / mu_oil). Sets max run-out.",
+ edge:"Downslope distance from where oil lands to the pad edge (berm, ditch, fence line). Beyond this, impacted soil is costed at the off-pad rate.",
+ thr:"Normal line flow. Used to express the leak as % of flow (CPM check), to cap the leak rate, and as default lost production.",
+ cpm:"Computational Pipeline Monitoring (API RP 1130) detection threshold as % of line flow. Leaks below it will not trigger a CPM alarm; they must be found by rounds, patrol or third party.",
+ cap:"A leak cannot exceed the flow the line delivers. Matters only for large holes.",
+ vu:"Display unit for spill volumes.",
+ hl:"Flag volume: spill volumes at or above this value are shown bold red and as a dashed line on the chart. Use a reporting threshold (49 CFR 195.50: 5 gal; 5 bbl for qualifying maintenance releases) or an internal significance level.",
+ c_cl:"Emergency response and free-product recovery (vac trucks, absorbents, crews) per bbl spilled. Soil work and disposal are costed separately.",
+ c_mob:"Fixed cost to mobilize crews and equipment per event.",
+ c_oil:"Oil value per bbl. Used for unrecovered oil and lost production revenue.",
+ c_rec:"Percent of spilled oil recovered as free liquid. The remainder is lost into soil or gravel and drives remediation volume.",
+ c_cap:"Oil held per unit soil volume at residual saturation = porosity x residual oil saturation. Gravel about 0.3 x 0.2 = 6%; sand 3-10%; fine soils higher. Impacted soil = unrecovered oil / this %.",
+ c_rho:"Bulk density of excavated soil or gravel, for disposal tonnage. Typical 1.3-1.6 ton/yd3.",
+ c_on:"Excavation, treatment and gravel replacement per yd3 on the pad (accessible, industrial surface).",
+ c_off:"Excavation, treatment and restoration per yd3 off the pad (vegetation, access, landowner restoration).",
+ c_disp:"Transport and disposal of impacted soil per ton (landfill or oilfield waste facility).",
+ c_bi:"Barrels per day not produced or delivered while the line is down. 0 = use line throughput. Lost revenue = bbl/d x outage/24 x oil price.",
+ c_out:"Hours the line is out of service for repair and restart.",
+ c_rep:"Repair cost per event: clamp, sleeve or cut-out, NDE, labor.",
+ h_rate:"Leak rate at operating pressure: Q = Cd A sqrt(2 P / rho). * = capped at line throughput.",
+ h_re:"Hole Reynolds number rho v d / mu. Below about 4000 the orifice Cd drops.",
+ h_ld:"Wall thickness / hole diameter. Above 1 the hole acts as a short tube; Cd may be closer to 0.8.",
+ h_pct:"Leak rate as % of line throughput.",
+ h_cpm:"CPM flag: Yes if leak rate >= CPM threshold, so a CPM system should alarm. No = below threshold; detection depends on rounds, patrol or third party.",
+ h_mat:"Spilled volume = leak rate x (detection time + detection-to-stop). Bold red = at or above the flag volume.",
+ h_film:"Laminar film depth h = (3 mu q / (rho g S))^(1/3), q = Q/W.",
+ h_fv:"Mean velocity of the flowing oil film, q/h.",
+ h_front:"Initial speed of the leading edge, slowed by filling surface retention: Q / (W (h + d_r)).",
+ h_max:"Distance at which infiltration absorbs the whole stream: Q / (f W). The front never goes beyond it.",
+ h_soil:"Impacted soil = unrecovered oil / soil oil retention %. Split on/off pad by wetted length when the leak is stopped.",
+ h_resp:"Mobilization + response unit cost x spilled bbl.",
+ h_lost:"Spilled bbl x (1 - recovery %) x oil price.",
+ h_rem:"On-pad yd3 x on-pad rate + off-pad yd3 x off-pad rate.",
+ h_disp:"Impacted soil yd3 x bulk density x disposal $/ton.",
+ h_bi:"Lost production bbl x oil price (revenue not earned during the outage)."
+};
+function esc(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+function tip(k){return TIPS[k]?"<span class='tip' tabindex='0' data-tip='"+esc(TIPS[k])+"'>?</span>":"";}
+function th(t,k){return "<th>"+t+(k?tip(k):"")+"</th>";}
+function attachTips(){
+ Object.keys(TIPS).forEach(function(k){
+  var el=document.getElementById(k);if(!el||k.indexOf("h_")===0)return;
+  var lb=el.closest("label");if(!lb||lb.querySelector(".tip"))return;
+  var sp=document.createElement("span");sp.className="tip";sp.tabIndex=0;sp.setAttribute("data-tip",TIPS[k]);sp.textContent="?";
+  var sm=lb.querySelector("small");
+  if(lb.classList.contains("c"))lb.appendChild(sp);else if(sm)lb.insertBefore(sp,sm);else lb.insertBefore(sp,el);
+ });
+ document.querySelectorAll(".tip[data-k]").forEach(function(sp){sp.setAttribute("data-tip",TIPS[sp.getAttribute("data-k")]||"");});
+}
+var TB=null;
+function showTip(el){
+ TB=TB||document.getElementById("tipbox");TB.textContent=el.getAttribute("data-tip");TB.style.display="block";
+ var r=el.getBoundingClientRect(),w=TB.offsetWidth,hh=TB.offsetHeight;
+ var x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),y=r.bottom+6;
+ if(y+hh>window.innerHeight-8)y=r.top-hh-6;
+ TB.style.left=x+"px";TB.style.top=y+"px";
+}
+function hideTip(){if(TB)TB.style.display="none";}
+function unit(){return $("vu").value;}
+function conv(m3){var u=unit();return u==="bbl"?m3*M3BBL:(u==="gal"?m3*M3BBL*42:m3);}
+function heat(t){t=Math.max(0,Math.min(1,t));
+ return "rgb("+Math.round(255-t*17)+","+Math.round(255-t*83)+","+Math.round(255-t*95)+")";}
+
+function calc(){
+ var err=[];
+ var OD=num("od"),t=num("wt"),P=num("p"),SG=num("sg"),mu=num("mu"),Cd=num("cd"),tstop=num("tstop");
+ var thr=num("thr"),cpm=num("cpm"),cap=$("cap").checked;
+ var slope=num("slope"),wid=num("wid"),mup=num("mup"),ret=num("ret"),inf=num("inf");
+ var holes=sel("holes"),times=sel("times"),dists=sel("dists");
+ if(!(OD>0&&t>0))err.push("OD and wall must be > 0.");
+ if(OD>0&&t>0&&2*t>=OD)err.push("Wall too thick for OD.");
+ if(!(P>0))err.push("Pressure must be > 0.");
+ if(!(SG>0&&mu>0))err.push("SG and viscosity must be > 0.");
+ if(!(Cd>0&&Cd<=1))err.push("Cd must be in (0,1].");
+ if(!(tstop>=0))err.push("Detection-to-stop must be >= 0.");
+ if(!(slope>0))err.push("Slope must be > 0.");
+ if(!(wid>0&&mup>0))err.push("Flow width and pad viscosity must be > 0.");
+ if(!(ret>=0&&inf>=0))err.push("Retention and infiltration must be >= 0.");
+ var C={cl:num("c_cl"),mob:num("c_mob"),oil:num("c_oil"),rec:num("c_rec"),bi:num("c_bi"),out:num("c_out"),rep:num("c_rep"),cap:num("c_cap"),rho:num("c_rho"),on:num("c_on"),off:num("c_off"),disp:num("c_disp")};
+ if(!Object.keys(C).every(function(k){return C[k]>=0;}))err.push("Cost inputs must be >= 0.");
+ if(C.rec>100)err.push("Recovery must be <= 100%.");
+ if(!(C.cap>0&&C.cap<=100))err.push("Soil oil retention must be in (0,100]%.");
+ var edge=num("edge");if(!(edge>0))err.push("Pad edge distance must be > 0.");
+ if(!holes.length)err.push("Select at least one hole size.");
+ if(!times.length)err.push("Select at least one detection time.");
+ if(!isFinite(thr))thr=0;if(!isFinite(cpm))cpm=0;
+ var ID=OD-2*t;
+ holes.forEach(function(d){if(d>=ID)err.push("Hole "+fmtIn(d)+" >= pipe ID.");});
+ $("err").textContent=err.join(" ");
+ if(err.length){last=null;return;}
+
+ var rho=SG*999.0,P0=P*PSI,Qthr=thr>0?thr/M3BBL/86400:0;
+ var Sg=Math.sin(Math.atan(slope/100)),W=wid*FT,mups=mup/1000,dr=ret*IN,f=inf*IN/3600;
+ var res=holes.map(function(d){
+  var dm=d*IN,A=Math.PI/4*dm*dm,Q0=Cd*A*Math.sqrt(2*P0/rho),vj=Math.sqrt(2*P0/rho),Re=rho*vj*dm/(mu/1000);
+  var capped=cap&&Qthr>0&&Q0>Qthr,Q=capped?Qthr:Q0;
+  var q=Q/W,hf=Math.cbrt(3*mups*q/(rho*G*Sg)),D=hf+dr,xmax=f>0?Q/(f*W):Infinity;
+  function tReach(x){if(x>=xmax)return Infinity;return f>0?-(D/f)*Math.log(1-x/xmax):x*W*D/Q;}
+  function xAt(ts){return f>0?xmax*(1-Math.exp(-f*ts/D)):Q*ts/(W*D);}
+  return {d:d,Q0:Q0,Q:Q,capped:capped,pct:Qthr>0?Q0/Qthr*100:NaN,det:Qthr>0?(Q0/Qthr*100>=cpm):null,Re:Re,LD:t/d,
+   hf:hf,vfilm:q/hf,vfront:Q/(W*D),ReF:q*rho/mups,xmax:xmax,
+   vol:times.map(function(td){return Q*(td+tstop)*3600;}),
+   reach:dists.map(function(x){return tReach(x*FT)/3600;}),
+   front:times.map(function(td){return xAt(td*3600)/FT;}),
+   cost:times.map(function(td){
+    var te=(td+tstop)*3600,b=Q*te*M3BBL,ub=b*(1-C.rec/100),cl=C.mob+C.cl*b,lost=ub*C.oil,bi=(C.bi>0?C.bi:thr)*C.out/24*C.oil;
+    var x=xAt(te),xe=edge*FT,fo=x>xe?(x-xe)/x:0,yd=ub/M3BBL/(C.cap/100)*1.307951,yon=yd*(1-fo),yoff=yd*fo;
+    var soil=yon*C.on+yoff*C.off,disp=yd*C.rho*C.disp;
+    return {bbl:b,yon:yon,yoff:yoff,xend:x/FT,cl:cl,lost:lost,soil:soil,disp:disp,bi:bi,rep:C.rep,tot:cl+lost+soil+disp+bi+C.rep};
+   })};
+ });
+ last={res:res,times:times,dists:dists,thr:thr,tstop:tstop,f:f,C:C,edge:edge};
+}
+
+function render(){
+ calc();
+ var L=last;
+ if(!L){["rate","rwarn","mat","pad","pwarn","reach","front","cmat","cbrk","cfix"].forEach(function(i){$(i).innerHTML="";});drawChart();return;}
+ var u=unit(),hl=num("hl"),hasThr=L.thr>0,w=[];
+
+ var h="<tr><th class='l'>Hole</th>"+th("bbl/h","h_rate")+th("bbl/d")+th("gpm")+th("Re","h_re")+th("L/d","h_ld")+(hasThr?th("% thru","h_pct")+th("CPM detect","h_cpm"):"")+"</tr>";
+ L.res.forEach(function(r){var b=r.Q0*M3BBL*3600;
+  h+="<tr><td class='l'>"+fmtIn(r.d)+"</td><td>"+fmt(b)+(r.capped?"*":"")+"</td><td>"+fmt(b*24)+"</td><td>"+fmt(b*42/60)+"</td><td>"+fmt(r.Re)+"</td><td>"+fmt(r.LD)+"</td>"+
+   (hasThr?"<td>"+fmt(r.pct)+"</td><td>"+(r.det?"Yes":"<b style='color:var(--warn)'>No</b>")+"</td>":"")+"</tr>";
+  if(r.Re<4000)w.push(fmtIn(r.d)+": Re "+fmt(r.Re)+", Cd likely lower.");
+  if(r.capped)w.push(fmtIn(r.d)+": exceeds throughput; capped (*).");
+ });
+ $("rate").innerHTML=h;
+ var lds=L.res.filter(function(r){return r.LD>1;}).map(function(r){return fmtIn(r.d);});
+ if(lds.length)w.push("L/d &gt; 1 for "+lds.join(", ")+": short-tube flow; Cd 0.61 may understate rate.");
+ $("rwarn").innerHTML=w.map(function(x){return "<div class='warn'>"+x+"</div>";}).join("");
+
+ var lv=[];L.res.forEach(function(r){r.vol.forEach(function(v){if(v>0)lv.push(Math.log10(v));});});
+ var lo=Math.min.apply(null,lv),span=(Math.max.apply(null,lv)-lo)||1;
+ h="<tr><th class='l'>Hole \\ detect ("+u+")"+tip("h_mat")+"</th>"+L.times.map(function(t){return "<th>"+fmtT(t)+"</th>";}).join("")+"</tr>";
+ L.res.forEach(function(r){h+="<tr><td class='l'><b>"+fmtIn(r.d)+"</b></td>"+r.vol.map(function(v){
+  var fl=isFinite(hl)&&v*M3BBL>=hl;
+  return "<td style='background:"+heat((Math.log10(v)-lo)/span)+"'"+(fl?" class='hi'":"")+">"+fmt(conv(v))+"</td>";}).join("")+"</tr>";});
+ $("mat").innerHTML=h;
+
+ // pad
+ var pw=[];
+ h="<tr><th class='l'>Hole</th>"+th("Rate bbl/h")+th("Film depth in","h_film")+th("Film vel. ft/min","h_fv")+th("Front speed ft/min","h_front")+th("Max run-out","h_max")+"</tr>";
+ L.res.forEach(function(r){
+  h+="<tr><td class='l'>"+fmtIn(r.d)+"</td><td>"+fmt(r.Q*M3BBL*3600)+"</td><td>"+fmt(r.hf/IN)+"</td><td>"+fmt(r.vfilm/FT*60)+"</td><td>"+fmt(r.vfront/FT*60)+
+   "</td><td>"+(isFinite(r.xmax)?fmtFt(r.xmax/FT):"unlimited")+"</td></tr>";
+  if(r.ReF>500)pw.push(fmtIn(r.d)+": film Re "+fmt(r.ReF)+" - wavy/turbulent; laminar film overstates depth.");
+ });
+ $("pad").innerHTML=h;
+ $("pwarn").innerHTML=pw.map(function(x){return "<div class='warn'>"+x+"</div>";}).join("");
+
+ if(!L.dists.length){$("reach").innerHTML="<tr><td class='l'>Select a target distance.</td></tr>";}
+ else{
+  h="<tr><th class='l'>Hole \\ distance</th>"+L.dists.map(function(x){return "<th>"+fmtFt(x)+(x>L.edge?"<br><small style='color:var(--bad)'>off pad</small>":"")+"</th>";}).join("")+"</tr>";
+  L.res.forEach(function(r){h+="<tr><td class='l'><b>"+fmtIn(r.d)+"</b></td>"+r.reach.map(function(t){
+   return isFinite(t)?"<td>"+fmtT(t)+"</td>":"<td style='color:var(--mut)'>never</td>";}).join("")+"</tr>";});
+  $("reach").innerHTML=h;
+ }
+ h="<tr><th class='l'>Hole \\ detect</th>"+L.times.map(function(t){return "<th>"+fmtT(t)+"</th>";}).join("")+"</tr>";
+ L.res.forEach(function(r){h+="<tr><td class='l'><b>"+fmtIn(r.d)+"</b></td>"+r.front.map(function(x){
+  var atMax=isFinite(r.xmax)&&x>=0.99*r.xmax/FT;
+  return "<td"+(x>L.edge?" class='off'":"")+">"+fmt(x)+(atMax?" (max)":"")+"</td>";}).join("")+"</tr>";});
+ $("front").innerHTML=h;
+
+ // cost
+ var cv=[];L.res.forEach(function(r){r.cost.forEach(function(c){cv.push(Math.log10(c.tot));});});
+ var clo=Math.min.apply(null,cv),cspan=(Math.max.apply(null,cv)-clo)||1;
+ h="<tr><th class='l'>Hole \\ detect</th>"+L.times.map(function(t){return "<th>"+fmtT(t)+"</th>";}).join("")+"</tr>";
+ L.res.forEach(function(r){h+="<tr><td class='l'><b>"+fmtIn(r.d)+"</b></td>"+r.cost.map(function(c){
+  return "<td style='background:"+heat((Math.log10(c.tot)-clo)/cspan)+"'>"+usd(c.tot)+"</td>";}).join("")+"</tr>";});
+ $("cmat").innerHTML=h;
+ var cs=$("csel"),pv=cs.value;
+ cs.innerHTML=L.res.map(function(r,i){return "<option value='"+i+"'>"+fmtIn(r.d)+"</option>";}).join("");
+ if(pv!==""&&+pv<L.res.length)cs.value=pv;
+ renderCost();
+
+ drawChart();
+}
+
+function usd(x){
+ if(!isFinite(x))return "-";
+ if(x>=1e6)return "$"+(x/1e6).toFixed(2)+"M";
+ return "$"+Math.round(x).toLocaleString("en-US");
+}
+function renderCost(){
+ var L=last;if(!L)return;
+ var r=L.res[+$("csel").value||0],C=L.C;
+ var h="<tr><th class='l'>Detect</th>"+th("Spilled bbl")+th("Soil on pad yd3","h_soil")+th("Soil off pad yd3","h_soil")+th("Response","h_resp")+th("Unrecov. oil","h_lost")+
+  th("Soil remed.","h_rem")+th("Disposal","h_disp")+th("Lost revenue","h_bi")+th("Repair")+th("Total")+"</tr>";
+ r.cost.forEach(function(c,i){
+  h+="<tr><td class='l'>"+fmtT(L.times[i])+"</td><td>"+fmt(c.bbl)+"</td><td>"+fmt(c.yon)+"</td><td"+(c.yoff>0?" class='off'":"")+">"+fmt(c.yoff)+"</td><td>"+usd(c.cl)+"</td><td>"+usd(c.lost)+
+   "</td><td>"+usd(c.soil)+"</td><td>"+usd(c.disp)+"</td><td>"+usd(c.bi)+"</td><td>"+usd(c.rep)+"</td><td><b>"+usd(c.tot)+"</b></td></tr>";
+ });
+ $("cbrk").innerHTML=h;
+ var biv=(C.bi>0?C.bi:L.thr)*C.out/24,fixed=C.mob+biv*C.oil+C.rep,u=1-C.rec/100,ydb=1/M3BBL/(C.cap/100)*1.307951;
+ var perOn=C.cl+u*(C.oil+ydb*(C.on+C.rho*C.disp));
+ $("cfix").textContent="Lost production: "+fmt(biv)+" bbl  |  Fixed per event: "+usd(fixed)+"  |  Volume-driven (on pad): "+usd(perOn)+" per bbl spilled  |  Impacted soil: "+fmt(u*ydb)+" yd3 per bbl spilled.";
+}
+
+function drawChart(){
+ var L=last,cv=$("chart");if(!cv.getContext)return;
+ var ctx=cv.getContext("2d");if(!ctx)return;
+ var dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight||320;
+ if(!W)return;
+ cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+ if(!L)return;
+ var narrow=W<560,m={l:62,r:narrow?12:84,t:12,b:narrow?64:40};
+ var ts=L.times,vs=[];
+ L.res.forEach(function(r){r.vol.forEach(function(v){if(v>0)vs.push(conv(v));});});
+ if(!vs.length)return;
+ var x0=Math.floor(Math.log10(ts[0])),x1=Math.ceil(Math.log10(ts[ts.length-1]));if(x1<=x0)x1=x0+1;
+ var y0=Math.floor(Math.log10(Math.min.apply(null,vs))),y1=Math.ceil(Math.log10(Math.max.apply(null,vs)));if(y1<=y0)y1=y0+1;
+ var pw=W-m.l-m.r,ph=H-m.t-m.b;
+ var X=function(v){return m.l+(Math.log10(v)-x0)/(x1-x0)*pw;};
+ var Y=function(v){return m.t+ph-(Math.log10(v)-y0)/(y1-y0)*ph;};
+ ctx.font="11px -apple-system,Helvetica,Arial,sans-serif";ctx.lineWidth=1;
+ var k,j,v;
+ for(k=x0;k<=x1;k++){for(j=1;j<10;j++){v=j*Math.pow(10,k);if(Math.log10(v)>x1+1e-9)break;
+  ctx.strokeStyle=j===1?"#cfd5de":"#eef1f5";ctx.beginPath();ctx.moveTo(X(v)+.5,m.t);ctx.lineTo(X(v)+.5,m.t+ph);ctx.stroke();}
+  ctx.fillStyle="#5b6575";ctx.textAlign="center";ctx.fillText(fmtT(Math.pow(10,k)),X(Math.pow(10,k)),m.t+ph+14);}
+ for(k=y0;k<=y1;k++){for(j=1;j<10;j++){v=j*Math.pow(10,k);if(Math.log10(v)>y1+1e-9)break;
+  ctx.strokeStyle=j===1?"#cfd5de":"#eef1f5";ctx.beginPath();ctx.moveTo(m.l,Y(v)+.5);ctx.lineTo(m.l+pw,Y(v)+.5);ctx.stroke();}
+  ctx.fillStyle="#5b6575";ctx.textAlign="right";ctx.fillText(fmt(Math.pow(10,k)),m.l-6,Y(Math.pow(10,k))+4);}
+ ctx.strokeStyle="#8a93a3";ctx.strokeRect(m.l+.5,m.t+.5,pw,ph);
+ ctx.fillStyle="#1d2330";ctx.textAlign="center";ctx.fillText("Detection time (log)",m.l+pw/2,m.t+ph+30);
+ ctx.save();ctx.translate(14,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText("Spilled ("+unit()+", log)",0,0);ctx.restore();
+ var hl=num("hl");
+ if(isFinite(hl)&&hl>0){var hv=conv(hl/M3BBL);if(Math.log10(hv)>=y0&&Math.log10(hv)<=y1){
+  ctx.setLineDash([5,4]);ctx.strokeStyle="#b3261e";ctx.beginPath();ctx.moveTo(m.l,Y(hv));ctx.lineTo(m.l+pw,Y(hv));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="#b3261e";ctx.textAlign="left";ctx.fillText("flag",m.l+4,Y(hv)-4);}}
+ L.res.forEach(function(r,i){
+  var col=COLORS[i%COLORS.length];ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2;ctx.beginPath();
+  ts.forEach(function(t,n){var x=X(t),y=Y(conv(r.vol[n]));if(n)ctx.lineTo(x,y);else ctx.moveTo(x,y);});ctx.stroke();
+  ts.forEach(function(t,n){ctx.beginPath();ctx.arc(X(t),Y(conv(r.vol[n])),3,0,2*Math.PI);ctx.fill();});
+  ctx.lineWidth=1;var lx,ly;
+  if(narrow){lx=m.l+(i%4)*Math.min(90,pw/4);ly=H-30+Math.floor(i/4)*14;}else{lx=W-m.r+10;ly=m.t+10+i*16;}
+  ctx.fillRect(lx,ly-5,14,3);ctx.fillStyle="#1d2330";ctx.textAlign="left";ctx.fillText(fmtIn(r.d),lx+18,ly);
+ });
+}
+
+function exportCSV(){
+ var L=last;if(!L)return;var u=unit(),o=[];
+ o.push(["Spilled "+u,"hole in"].concat(L.times.map(function(t){return "det "+(+t.toFixed(4))+" h";})).join(","));
+ L.res.forEach(function(r){o.push(["",r.d].concat(r.vol.map(function(v){return conv(v).toPrecision(5);})).join(","));});
+ o.push("");
+ o.push(["Reach time h","hole in"].concat(L.dists.map(function(x){return x+" ft";})).join(","));
+ L.res.forEach(function(r){o.push(["",r.d].concat(r.reach.map(function(t){return isFinite(t)?t.toPrecision(4):"never";})).join(","));});
+ o.push("");
+ o.push(["Front ft at detection","hole in"].concat(L.times.map(function(t){return "det "+(+t.toFixed(4))+" h";})).join(","));
+ L.res.forEach(function(r){o.push(["",r.d].concat(r.front.map(function(x){return x.toPrecision(4);})).join(","));});
+ o.push("");
+ o.push(["Total cost USD","hole in"].concat(L.times.map(function(t){return "det "+(+t.toFixed(4))+" h";})).join(","));
+ L.res.forEach(function(r){o.push(["",r.d].concat(r.cost.map(function(c){return Math.round(c.tot);})).join(","));});
+ o.push("");
+ ["od","wt","p","sg","mu","cd","tstop","slope","wid","mup","ret","inf","thr","cpm","c_cl","c_mob","c_oil","c_rec","c_bi","c_out","c_rep","edge","c_cap","c_rho","c_on","c_off","c_disp"].forEach(function(id){o.push(id+","+$(id).value);});
+ var b=new Blob([o.join("\n")],{type:"text/csv"}),a=document.createElement("a");
+ a.href=URL.createObjectURL(b);a.download="pinhole_leak_spill.csv";document.body.appendChild(a);a.click();
+ setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+}
+
+// events
+document.addEventListener("change",function(e){
+ var el=e.target;
+ if(el.dataset&&el.dataset.k){var it=S[el.dataset.k][+el.dataset.i];it.on=el.checked;el.parentNode.classList.toggle("on",el.checked);render();return;}
+ if(el.id==="csel"){renderCost();return;}
+ if(el.id==="surf"){if(el.value!=="custom"){var p=el.value.split(",");$("ret").value=p[0];$("inf").value=p[1];}render();return;}
+ if(el.id==="ret"||el.id==="inf")$("surf").value="custom";
+ if(el.matches("aside input,aside select"))render();
+});
+document.addEventListener("input",function(e){
+ var el=e.target;
+ if(el.id&&el.id.indexOf("ad_")===0)return;
+ if(el.id==="ret"||el.id==="inf")$("surf").value="custom";
+ if(el.type==="number")render();
+});
+document.querySelectorAll("[data-add]").forEach(function(b){b.addEventListener("click",function(){addChip(b.dataset.add);});});
+["holes","times","dists"].forEach(function(k){$("ad_"+k).addEventListener("keydown",function(e){if(e.key==="Enter")addChip(k);});});
+$("tabs").addEventListener("click",function(e){
+ var b=e.target.closest("button");if(!b)return;
+ document.querySelectorAll("#tabs button").forEach(function(x){x.classList.toggle("act",x===b);});
+ document.querySelectorAll(".tab").forEach(function(x){x.classList.toggle("act",x.id===b.dataset.t);});
+ drawChart();
+});
+$("tog").addEventListener("click",function(){
+ var m=$("main");m.classList.toggle("noaside");this.textContent=m.classList.contains("noaside")?"Show inputs":"Hide inputs";drawChart();
+});
+$("csv").addEventListener("click",exportCSV);
+document.addEventListener("mouseover",function(e){var t=e.target.closest&&e.target.closest(".tip");if(t)showTip(t);});
+document.addEventListener("mouseout",function(e){if(e.target.closest&&e.target.closest(".tip"))hideTip();});
+document.addEventListener("focusin",function(e){if(e.target.classList&&e.target.classList.contains("tip"))showTip(e.target);});
+document.addEventListener("focusout",function(e){if(e.target.classList&&e.target.classList.contains("tip"))hideTip();});
+document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest(".tip");if(t){e.preventDefault();e.stopPropagation();showTip(t);}else hideTip();},true);
+window.addEventListener("scroll",hideTip,true);
+var rt;window.addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(drawChart,120);});
+attachTips();
+["holes","times","dists"].forEach(drawChips);
+render();
+})();
+</script>
+</body>
+</html>
